@@ -9,7 +9,7 @@ import (
 	"time"
 
 	ic "github.com/ipfs/go-libp2p-crypto"
-	travis "github.com/libp2p/go-libp2p/testutil/ci/travis"
+	travis "github.com/libp2p/go-testutil/ci/travis"
 )
 
 func upgradeToSecureConn(t *testing.T, ctx context.Context, sk ic.PrivKey, c Conn) (Conn, error) {

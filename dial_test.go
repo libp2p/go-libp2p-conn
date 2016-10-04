@@ -2,6 +2,7 @@ package conn
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -13,12 +14,10 @@ import (
 
 	ic "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"
-	transport "github.com/libp2p/go-libp2p-transport"
-	tu "github.com/libp2p/go-libp2p/testutil"
-	tcpt "github.com/libp2p/go-tcp-transport"
-
-	"context"
 	ma "github.com/jbenet/go-multiaddr"
+	transport "github.com/libp2p/go-libp2p-transport"
+	tcpt "github.com/libp2p/go-tcp-transport"
+	tu "github.com/libp2p/go-testutil"
 	msmux "github.com/whyrusleeping/go-multistream"
 	grc "github.com/whyrusleeping/gorocheck"
 )

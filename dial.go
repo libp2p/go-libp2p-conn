@@ -12,8 +12,8 @@ import (
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
 	manet "github.com/jbenet/go-multiaddr-net"
+	addrutil "github.com/libp2p/go-addr-util"
 	transport "github.com/libp2p/go-libp2p-transport"
-	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
 	msmux "github.com/whyrusleeping/go-multistream"
 )
 
