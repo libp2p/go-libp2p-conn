@@ -10,16 +10,17 @@ import (
 	peer "github.com/ipfs/go-libp2p-peer"
 	secio "github.com/ipfs/go-libp2p-secio"
 	ma "github.com/jbenet/go-multiaddr"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 )
 
 // secureConn wraps another Conn object with an encrypted channel.
 type secureConn struct {
-	insecure Conn          // the wrapped conn
+	insecure iconn.Conn    // the wrapped conn
 	secure   secio.Session // secure Session
 }
 
 // newConn constructs a new connection
-func newSecureConn(ctx context.Context, sk ic.PrivKey, insecure Conn) (Conn, error) {
+func newSecureConn(ctx context.Context, sk ic.PrivKey, insecure iconn.Conn) (iconn.Conn, error) {
 
 	if insecure == nil {
 		return nil, errors.New("insecure is nil")
@@ -51,11 +52,11 @@ func (c *secureConn) Close() error {
 
 // ID is an identifier unique to this connection.
 func (c *secureConn) ID() string {
-	return ID(c)
+	return iconn.ID(c)
 }
 
 func (c *secureConn) String() string {
-	return String(c, "secureConn")
+	return iconn.String(c, "secureConn")
 }
 
 func (c *secureConn) LocalAddr() net.Addr {

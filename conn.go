@@ -2,12 +2,10 @@ package conn
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"time"
 
-	u "github.com/ipfs/go-ipfs-util"
 	ic "github.com/ipfs/go-libp2p-crypto"
 	lgbl "github.com/ipfs/go-libp2p-loggables"
 	peer "github.com/ipfs/go-libp2p-peer"
@@ -15,6 +13,7 @@ import (
 	mpool "github.com/jbenet/go-msgio/mpool"
 	ma "github.com/jbenet/go-multiaddr"
 	manet "github.com/jbenet/go-multiaddr-net"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 )
 
 var log = logging.Logger("conn")
@@ -35,7 +34,7 @@ type singleConn struct {
 }
 
 // newConn constructs a new connection
-func newSingleConn(ctx context.Context, local, remote peer.ID, maconn manet.Conn) (Conn, error) {
+func newSingleConn(ctx context.Context, local, remote peer.ID, maconn manet.Conn) (iconn.Conn, error) {
 	ml := lgbl.Dial("conn", local, remote, maconn.LocalMultiaddr(), maconn.RemoteMultiaddr())
 
 	conn := &singleConn{
@@ -64,11 +63,11 @@ func (c *singleConn) Close() error {
 
 // ID is an identifier unique to this connection.
 func (c *singleConn) ID() string {
-	return ID(c)
+	return iconn.ID(c)
 }
 
 func (c *singleConn) String() string {
-	return String(c, "singleConn")
+	return iconn.String(c, "singleConn")
 }
 
 func (c *singleConn) LocalAddr() net.Addr {
@@ -126,20 +125,4 @@ func (c *singleConn) Read(buf []byte) (int, error) {
 // Write writes data, net.Conn style
 func (c *singleConn) Write(buf []byte) (int, error) {
 	return c.maconn.Write(buf)
-}
-
-// ID returns the ID of a given Conn.
-func ID(c Conn) string {
-	l := fmt.Sprintf("%s/%s", c.LocalMultiaddr(), c.LocalPeer().Pretty())
-	r := fmt.Sprintf("%s/%s", c.RemoteMultiaddr(), c.RemotePeer().Pretty())
-	lh := u.Hash([]byte(l))
-	rh := u.Hash([]byte(r))
-	ch := u.XOR(lh, rh)
-	return peer.ID(ch).Pretty()
-}
-
-// String returns the user-friendly String representation of a conn
-func String(c Conn, typ string) string {
-	return fmt.Sprintf("%s (%s) <-- %s %p --> (%s) %s",
-		c.LocalPeer(), c.LocalMultiaddr(), typ, c, c.RemoteMultiaddr(), c.RemotePeer())
 }

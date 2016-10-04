@@ -14,6 +14,7 @@ import (
 	tec "github.com/jbenet/go-temp-err-catcher"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	transport "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
 	msmux "github.com/whyrusleeping/go-multistream"
@@ -93,7 +94,7 @@ func (l *listener) Accept() (net.Conn, error) {
 			return nil, err
 		}
 
-		if l.privk == nil || !EncryptConnections {
+		if l.privk == nil || !iconn.EncryptConnections {
 			log.Warning("listener %s listening INSECURELY!", l)
 			return c, nil
 		}
@@ -186,7 +187,7 @@ func (l *listener) handleIncoming() {
 	}
 }
 
-func WrapTransportListener(ctx context.Context, ml transport.Listener, local peer.ID, sk ic.PrivKey) (Listener, error) {
+func WrapTransportListener(ctx context.Context, ml transport.Listener, local peer.ID, sk ic.PrivKey) (iconn.Listener, error) {
 	l := &listener{
 		Listener: ml,
 		local:    local,
@@ -211,7 +212,7 @@ func WrapTransportListener(ctx context.Context, ml transport.Listener, local pee
 		return false
 	}
 
-	if EncryptConnections && sk != nil {
+	if iconn.EncryptConnections && sk != nil {
 		l.mux.AddHandler(SecioTag, nil)
 	} else {
 		l.mux.AddHandler(NoEncryptionTag, nil)

@@ -15,6 +15,7 @@ import (
 	ic "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	transport "github.com/libp2p/go-libp2p-transport"
 	tcpt "github.com/libp2p/go-tcp-transport"
 	tu "github.com/libp2p/go-testutil"
@@ -26,7 +27,7 @@ func goroFilter(r *grc.Goroutine) bool {
 	return strings.Contains(r.Function, "go-log.") || strings.Contains(r.Stack[0], "testing.(*T).Run")
 }
 
-func echoListen(ctx context.Context, listener Listener) {
+func echoListen(ctx context.Context, listener iconn.Listener) {
 	for {
 		c, err := listener.Accept()
 		if err != nil {
@@ -46,23 +47,23 @@ func echoListen(ctx context.Context, listener Listener) {
 			return
 		}
 
-		go echo(c.(Conn))
+		go echo(c.(iconn.Conn))
 	}
 }
 
-func echo(c Conn) {
+func echo(c iconn.Conn) {
 	io.Copy(c, c)
 }
 
-func setupSecureConn(t *testing.T, ctx context.Context) (a, b Conn, p1, p2 tu.PeerNetParams) {
+func setupSecureConn(t *testing.T, ctx context.Context) (a, b iconn.Conn, p1, p2 tu.PeerNetParams) {
 	return setupConn(t, ctx, true)
 }
 
-func setupSingleConn(t *testing.T, ctx context.Context) (a, b Conn, p1, p2 tu.PeerNetParams) {
+func setupSingleConn(t *testing.T, ctx context.Context) (a, b iconn.Conn, p1, p2 tu.PeerNetParams) {
 	return setupConn(t, ctx, false)
 }
 
-func Listen(ctx context.Context, addr ma.Multiaddr, local peer.ID, sk ic.PrivKey) (Listener, error) {
+func Listen(ctx context.Context, addr ma.Multiaddr, local peer.ID, sk ic.PrivKey) (iconn.Listener, error) {
 	list, err := tcpt.NewTCPTransport().Listen(addr)
 	if err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func dialer(t *testing.T, a ma.Multiaddr) transport.Dialer {
 	return tptd
 }
 
-func setupConn(t *testing.T, ctx context.Context, secure bool) (a, b Conn, p1, p2 tu.PeerNetParams) {
+func setupConn(t *testing.T, ctx context.Context, secure bool) (a, b iconn.Conn, p1, p2 tu.PeerNetParams) {
 
 	p1 = tu.RandPeerNetParamsOrFatal(t)
 	p2 = tu.RandPeerNetParamsOrFatal(t)
@@ -105,7 +106,7 @@ func setupConn(t *testing.T, ctx context.Context, secure bool) (a, b Conn, p1, p
 
 	d2.AddDialer(dialer(t, p2.Addr))
 
-	var c2 Conn
+	var c2 iconn.Conn
 
 	done := make(chan error)
 	go func() {
@@ -142,7 +143,7 @@ func setupConn(t *testing.T, ctx context.Context, secure bool) (a, b Conn, p1, p
 		t.Fatal(err)
 	}
 
-	return c1.(Conn), c2, p1, p2
+	return c1.(iconn.Conn), c2, p1, p2
 }
 
 func sayHello(c net.Conn) error {

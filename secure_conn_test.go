@@ -9,10 +9,11 @@ import (
 	"time"
 
 	ic "github.com/ipfs/go-libp2p-crypto"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	travis "github.com/libp2p/go-testutil/ci/travis"
 )
 
-func upgradeToSecureConn(t *testing.T, ctx context.Context, sk ic.PrivKey, c Conn) (Conn, error) {
+func upgradeToSecureConn(t *testing.T, ctx context.Context, sk ic.PrivKey, c iconn.Conn) (iconn.Conn, error) {
 	if c, ok := c.(*secureConn); ok {
 		return c, nil
 	}
@@ -34,7 +35,7 @@ func upgradeToSecureConn(t *testing.T, ctx context.Context, sk ic.PrivKey, c Con
 	return s, nil
 }
 
-func secureHandshake(t *testing.T, ctx context.Context, sk ic.PrivKey, c Conn, done chan error) {
+func secureHandshake(t *testing.T, ctx context.Context, sk ic.PrivKey, c iconn.Conn, done chan error) {
 	_, err := upgradeToSecureConn(t, ctx, sk, c)
 	done <- err
 }
@@ -143,7 +144,7 @@ func TestSecureCloseLeak(t *testing.T) {
 		t.Skip("this doesn't work well on travis")
 	}
 
-	runPair := func(c1, c2 Conn, num int) {
+	runPair := func(c1, c2 iconn.Conn, num int) {
 		mc1 := msgioWrap(c1)
 		mc2 := msgioWrap(c2)
 
@@ -185,7 +186,7 @@ func TestSecureCloseLeak(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		c1, c2, _, _ := setupSecureConn(t, ctx)
-		go func(c1, c2 Conn) {
+		go func(c1, c2 iconn.Conn) {
 
 			defer func() {
 				c1.Close()

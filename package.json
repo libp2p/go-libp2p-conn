@@ -113,6 +113,12 @@
       "hash": "QmYpVUnnedgGrp6cX2pBii5HRQgcSr778FiKVe7o7nF5Z3",
       "name": "go-testutil",
       "version": "1.0.2"
+    },
+    {
+      "author": "whyrusleeping",
+      "hash": "QmRxzoGdQaN6HYyqWnT82NnLLHBAZbTUvxPEfTBTjU7KCn",
+      "name": "go-libp2p-interface-conn",
+      "version": "0.1.0"
     }
   ],
   "gxVersion": "0.9.1",
@@ -120,6 +126,6 @@
   "license": "",
   "name": "go-libp2p-conn",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
 

@@ -1,23 +1,48 @@
 package conn
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strings"
 	"time"
 
-	"context"
 	ci "github.com/ipfs/go-libp2p-crypto"
 	lgbl "github.com/ipfs/go-libp2p-loggables"
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
 	manet "github.com/jbenet/go-multiaddr-net"
 	addrutil "github.com/libp2p/go-addr-util"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	transport "github.com/libp2p/go-libp2p-transport"
 	msmux "github.com/whyrusleeping/go-multistream"
 )
 
 type WrapFunc func(transport.Conn) transport.Conn
+
+// Dialer is an object that can open connections. We could have a "convenience"
+// Dial function as before, but it would have many arguments, as dialing is
+// no longer simple (need a peerstore, a local peer, a context, a network, etc)
+type Dialer struct {
+	// LocalPeer is the identity of the local Peer.
+	LocalPeer peer.ID
+
+	// LocalAddrs is a set of local addresses to use.
+	//LocalAddrs []ma.Multiaddr
+
+	// Dialers are the sub-dialers usable by this dialer
+	// selected in order based on the address being dialed
+	Dialers []transport.Dialer
+
+	// PrivateKey used to initialize a secure connection.
+	// Warning: if PrivateKey is nil, connection will not be secured.
+	PrivateKey ci.PrivKey
+
+	// Wrapper to wrap the raw connection (optional)
+	Wrapper WrapFunc
+
+	fallback transport.Dialer
+}
 
 func NewDialer(p peer.ID, pk ci.PrivKey, wrap WrapFunc) *Dialer {
 	return &Dialer{
@@ -36,12 +61,12 @@ func (d *Dialer) String() string {
 // Dial connects to a peer over a particular address
 // Ensures raddr is part of peer.Addresses()
 // Example: d.DialAddr(ctx, peer.Addresses()[0], peer)
-func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (Conn, error) {
+func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (iconn.Conn, error) {
 	logdial := lgbl.Dial("conn", d.LocalPeer, remote, nil, raddr)
 	logdial["encrypted"] = (d.PrivateKey != nil) // log wether this will be an encrypted dial or not.
 	defer log.EventBegin(ctx, "connDial", logdial).Done()
 
-	var connOut Conn
+	var connOut iconn.Conn
 	var errOut error
 	done := make(chan struct{})
 
@@ -65,7 +90,7 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 		}
 
 		cryptoProtoChoice := SecioTag
-		if !EncryptConnections || d.PrivateKey == nil {
+		if !iconn.EncryptConnections || d.PrivateKey == nil {
 			cryptoProtoChoice = NoEncryptionTag
 		}
 
@@ -86,7 +111,7 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 			return
 		}
 
-		if d.PrivateKey == nil || !EncryptConnections {
+		if d.PrivateKey == nil || !iconn.EncryptConnections {
 			log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
 			connOut = c
 			return

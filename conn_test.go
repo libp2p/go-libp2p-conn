@@ -2,22 +2,23 @@ package conn
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 
-	"context"
 	msgio "github.com/jbenet/go-msgio"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	travis "github.com/libp2p/go-testutil/ci/travis"
 )
 
-func msgioWrap(c Conn) msgio.ReadWriter {
+func msgioWrap(c iconn.Conn) msgio.ReadWriter {
 	return msgio.NewReadWriter(c)
 }
 
-func testOneSendRecv(t *testing.T, c1, c2 Conn) {
+func testOneSendRecv(t *testing.T, c1, c2 iconn.Conn) {
 	mc1 := msgioWrap(c1)
 	mc2 := msgioWrap(c2)
 
@@ -35,7 +36,7 @@ func testOneSendRecv(t *testing.T, c1, c2 Conn) {
 	}
 }
 
-func testNotOneSendRecv(t *testing.T, c1, c2 Conn) {
+func testNotOneSendRecv(t *testing.T, c1, c2 iconn.Conn) {
 	mc1 := msgioWrap(c1)
 	mc2 := msgioWrap(c2)
 
