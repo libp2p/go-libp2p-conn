@@ -6,14 +6,14 @@ import (
 	"net"
 	"time"
 
-	ic "github.com/ipfs/go-libp2p-crypto"
-	lgbl "github.com/ipfs/go-libp2p-loggables"
-	peer "github.com/ipfs/go-libp2p-peer"
 	logging "github.com/ipfs/go-log"
 	mpool "github.com/jbenet/go-msgio/mpool"
-	ma "github.com/jbenet/go-multiaddr"
-	manet "github.com/jbenet/go-multiaddr-net"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	lgbl "github.com/libp2p/go-libp2p-loggables"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 var log = logging.Logger("conn")
