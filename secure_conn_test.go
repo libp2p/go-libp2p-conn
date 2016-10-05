@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	ic "github.com/ipfs/go-libp2p-crypto"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	travis "github.com/libp2p/go-testutil/ci/travis"
 )

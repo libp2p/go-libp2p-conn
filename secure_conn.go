@@ -6,11 +6,11 @@ import (
 	"net"
 	"time"
 
-	ic "github.com/ipfs/go-libp2p-crypto"
-	peer "github.com/ipfs/go-libp2p-peer"
-	secio "github.com/ipfs/go-libp2p-secio"
-	ma "github.com/jbenet/go-multiaddr"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	peer "github.com/libp2p/go-libp2p-peer"
+	secio "github.com/libp2p/go-libp2p-secio"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // secureConn wraps another Conn object with an encrypted channel.

@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	ci "github.com/ipfs/go-libp2p-crypto"
-	lgbl "github.com/ipfs/go-libp2p-loggables"
-	peer "github.com/ipfs/go-libp2p-peer"
-	ma "github.com/jbenet/go-multiaddr"
-	manet "github.com/jbenet/go-multiaddr-net"
 	addrutil "github.com/libp2p/go-addr-util"
+	ci "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	lgbl "github.com/libp2p/go-libp2p-loggables"
+	peer "github.com/libp2p/go-libp2p-peer"
 	transport "github.com/libp2p/go-libp2p-transport"
+	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 	msmux "github.com/whyrusleeping/go-multistream"
 )
 
