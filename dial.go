@@ -129,7 +129,7 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 
 	select {
 	case <-ctx.Done():
-		logdial["error"] = ctx.Err()
+		logdial["error"] = ctx.Err().Error()
 		logdial["dial"] = "failure"
 		return nil, ctx.Err()
 	case <-done:
@@ -137,7 +137,7 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 	}
 
 	if errOut != nil {
-		logdial["error"] = errOut
+		logdial["error"] = errOut.Error()
 		logdial["dial"] = "failure"
 		return nil, errOut
 	}
