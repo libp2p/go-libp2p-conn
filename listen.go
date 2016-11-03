@@ -79,7 +79,7 @@ type connErr struct {
 
 // Accept waits for and returns the next connection to the listener.
 // Note that unfortunately this
-func (l *listener) Accept() (iconn.Conn, error) {
+func (l *listener) Accept() (transport.Conn, error) {
 	for con := range l.incoming {
 		if con.err != nil {
 			return nil, con.err
