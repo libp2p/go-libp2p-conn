@@ -10,6 +10,7 @@ import (
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	peer "github.com/libp2p/go-libp2p-peer"
 	secio "github.com/libp2p/go-libp2p-secio"
+	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -122,4 +123,8 @@ func (c *secureConn) Write(buf []byte) (int, error) {
 // ReleaseMsg releases a buffer
 func (c *secureConn) ReleaseMsg(m []byte) {
 	c.secure.ReadWriter().ReleaseMsg(m)
+}
+
+func (c *secureConn) Transport() tpt.Transport {
+	return c.insecure.Transport()
 }

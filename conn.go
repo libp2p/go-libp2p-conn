@@ -12,8 +12,8 @@ import (
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	lgbl "github.com/libp2p/go-libp2p-loggables"
 	peer "github.com/libp2p/go-libp2p-peer"
+	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 var log = logging.Logger("conn")
@@ -29,12 +29,12 @@ func ReleaseBuffer(b []byte) {
 type singleConn struct {
 	local  peer.ID
 	remote peer.ID
-	maconn manet.Conn
+	maconn tpt.Conn
 	event  io.Closer
 }
 
 // newConn constructs a new connection
-func newSingleConn(ctx context.Context, local, remote peer.ID, maconn manet.Conn) (iconn.Conn, error) {
+func newSingleConn(ctx context.Context, local, remote peer.ID, maconn tpt.Conn) (iconn.Conn, error) {
 	ml := lgbl.Dial("conn", local, remote, maconn.LocalMultiaddr(), maconn.RemoteMultiaddr())
 
 	conn := &singleConn{
@@ -105,6 +105,10 @@ func (c *singleConn) LocalMultiaddr() ma.Multiaddr {
 // RemoteMultiaddr is the Multiaddr on the remote side
 func (c *singleConn) RemoteMultiaddr() ma.Multiaddr {
 	return c.maconn.RemoteMultiaddr()
+}
+
+func (c *singleConn) Transport() tpt.Transport {
+	return c.maconn.Transport()
 }
 
 // LocalPeer is the Peer on this side
