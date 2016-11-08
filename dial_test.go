@@ -69,7 +69,7 @@ func Listen(ctx context.Context, addr ma.Multiaddr, local peer.ID, sk ic.PrivKey
 		return nil, err
 	}
 
-	return WrapTransportListener(ctx, list, local, sk)
+	return WrapTransportListener(ctx, list, local, sk, nil)
 }
 
 func dialer(t *testing.T, a ma.Multiaddr) transport.Dialer {
