@@ -32,7 +32,7 @@ func testOneSendRecv(t *testing.T, c1, c2 iconn.Conn) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(m1, m2) {
-		t.Fatal("failed to send: %s %s", m1, m2)
+		t.Fatalf("failed to send: %s %s", m1, m2)
 	}
 }
 
