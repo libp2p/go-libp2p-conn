@@ -199,6 +199,11 @@ func (l *listener) handleIncoming() {
 }
 
 func WrapTransportListener(ctx context.Context, ml transport.Listener, local peer.ID,
+	sk ic.PrivKey) (iconn.Listener, error) {
+	return WrapTransportListenerWithProtector(ctx, ml, local, sk, nil)
+}
+
+func WrapTransportListenerWithProtector(ctx context.Context, ml transport.Listener, local peer.ID,
 	sk ic.PrivKey, protec ipnet.Protector) (iconn.Listener, error) {
 
 	if protec == nil && ipnet.ShouldForcePrivateNetwork() {
