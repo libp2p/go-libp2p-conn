@@ -50,11 +50,10 @@ type Dialer struct {
 	fallback transport.Dialer
 }
 
-func NewDialer(p peer.ID, pk ci.PrivKey, pro ipnet.Protector, wrap WrapFunc) *Dialer {
+func NewDialer(p peer.ID, pk ci.PrivKey, wrap WrapFunc) *Dialer {
 	return &Dialer{
 		LocalPeer:  p,
 		PrivateKey: pk,
-		Protector:  pro,
 		Wrapper:    wrap,
 		fallback:   new(transport.FallbackDialer),
 	}
