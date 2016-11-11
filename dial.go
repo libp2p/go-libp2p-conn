@@ -74,7 +74,7 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 
 	defer log.EventBegin(ctx, "connDial", logdial).Done()
 
-	if d.Protector == nil && ipnet.ShouldForcePrivateNetwork() {
+	if d.Protector == nil && ipnet.ForcePrivateNetwork {
 		log.Error("tried to dial with no Private Network Protector but usage" +
 			" of Private Networks is forced by the enviroment")
 		return nil, ipnet.ErrNotInPrivateNetwork

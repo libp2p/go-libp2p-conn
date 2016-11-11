@@ -206,7 +206,7 @@ func WrapTransportListener(ctx context.Context, ml transport.Listener, local pee
 func WrapTransportListenerWithProtector(ctx context.Context, ml transport.Listener, local peer.ID,
 	sk ic.PrivKey, protec ipnet.Protector) (iconn.Listener, error) {
 
-	if protec == nil && ipnet.ShouldForcePrivateNetwork() {
+	if protec == nil && ipnet.ForcePrivateNetwork {
 		log.Error("tried to listen with no Private Network Protector but usage" +
 			" of Private Networks is forced by the enviroment")
 		return nil, ipnet.ErrNotInPrivateNetwork
