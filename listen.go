@@ -13,6 +13,7 @@ import (
 	goprocessctx "github.com/jbenet/goprocess/context"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
 	peer "github.com/libp2p/go-libp2p-peer"
 	transport "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
@@ -37,8 +38,9 @@ type ConnWrapper func(transport.Conn) transport.Conn
 type listener struct {
 	transport.Listener
 
-	local peer.ID    // LocalPeer is the identity of the local Peer
-	privk ic.PrivKey // private key to use to initialize secure conns
+	local  peer.ID    // LocalPeer is the identity of the local Peer
+	privk  ic.PrivKey // private key to use to initialize secure conns
+	protec ipnet.Protector
 
 	filters *filter.Filters
 
@@ -93,6 +95,14 @@ func (l *listener) Accept() (transport.Conn, error) {
 			}
 			return nil, err
 		}
+		if l.protec != nil {
+			pc, err := l.protec.Protect(c)
+			if err != nil {
+				con.conn.Close()
+				return nil, err
+			}
+			c = pc
+		}
 
 		if l.privk == nil || !iconn.EncryptConnections {
 			log.Warning("listener %s listening INSECURELY!", l)
@@ -128,9 +138,10 @@ func (l *listener) LocalPeer() peer.ID {
 func (l *listener) Loggable() map[string]interface{} {
 	return map[string]interface{}{
 		"listener": map[string]interface{}{
-			"peer":    l.LocalPeer(),
-			"address": l.Multiaddr(),
-			"secure":  (l.privk != nil),
+			"peer":      l.LocalPeer(),
+			"address":   l.Multiaddr(),
+			"secure":    (l.privk != nil),
+			"inPrivNet": (l.protec != nil),
 		},
 	}
 }
@@ -187,11 +198,25 @@ func (l *listener) handleIncoming() {
 	}
 }
 
-func WrapTransportListener(ctx context.Context, ml transport.Listener, local peer.ID, sk ic.PrivKey) (iconn.Listener, error) {
+func WrapTransportListener(ctx context.Context, ml transport.Listener, local peer.ID,
+	sk ic.PrivKey) (iconn.Listener, error) {
+	return WrapTransportListenerWithProtector(ctx, ml, local, sk, nil)
+}
+
+func WrapTransportListenerWithProtector(ctx context.Context, ml transport.Listener, local peer.ID,
+	sk ic.PrivKey, protec ipnet.Protector) (iconn.Listener, error) {
+
+	if protec == nil && ipnet.ForcePrivateNetwork {
+		log.Error("tried to listen with no Private Network Protector but usage" +
+			" of Private Networks is forced by the enviroment")
+		return nil, ipnet.ErrNotInPrivateNetwork
+	}
+
 	l := &listener{
 		Listener: ml,
 		local:    local,
 		privk:    sk,
+		protec:   protec,
 		mux:      msmux.NewMultistreamMuxer(),
 		incoming: make(chan connErr, connAcceptBuffer),
 		ctx:      ctx,

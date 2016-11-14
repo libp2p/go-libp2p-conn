@@ -10,6 +10,7 @@ import (
 	addrutil "github.com/libp2p/go-addr-util"
 	ci "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
 	lgbl "github.com/libp2p/go-libp2p-loggables"
 	peer "github.com/libp2p/go-libp2p-peer"
 	transport "github.com/libp2p/go-libp2p-transport"
@@ -38,6 +39,11 @@ type Dialer struct {
 	// Warning: if PrivateKey is nil, connection will not be secured.
 	PrivateKey ci.PrivKey
 
+	// Protector makes dialer part of a private network.
+	// It includes implementation details how connection are protected.
+	// Can be nil, then dialer is in public network.
+	Protector ipnet.Protector
+
 	// Wrapper to wrap the raw connection (optional)
 	Wrapper WrapFunc
 
@@ -64,7 +70,15 @@ func (d *Dialer) String() string {
 func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (iconn.Conn, error) {
 	logdial := lgbl.Dial("conn", d.LocalPeer, remote, nil, raddr)
 	logdial["encrypted"] = (d.PrivateKey != nil) // log wether this will be an encrypted dial or not.
+	logdial["inPrivNet"] = (d.Protector != nil)
+
 	defer log.EventBegin(ctx, "connDial", logdial).Done()
+
+	if d.Protector == nil && ipnet.ForcePrivateNetwork {
+		log.Error("tried to dial with no Private Network Protector but usage" +
+			" of Private Networks is forced by the enviroment")
+		return nil, ipnet.ErrNotInPrivateNetwork
+	}
 
 	var connOut iconn.Conn
 	var errOut error
@@ -109,6 +123,15 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 			maconn.Close()
 			errOut = err
 			return
+		}
+		if d.Protector != nil {
+			pconn, err := d.Protector.Protect(c)
+			if err != nil {
+				c.Close()
+				errOut = err
+				return
+			}
+			c = pconn
 		}
 
 		if d.PrivateKey == nil || !iconn.EncryptConnections {

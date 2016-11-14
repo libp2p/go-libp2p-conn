@@ -119,6 +119,12 @@
       "hash": "QmctX4TY6jXtpfeDiwMGoB4qVTBGDnz7T7r22CwQSzTgwt",
       "name": "go-libp2p-interface-conn",
       "version": "0.4.0"
+    },
+    {
+      "author": "libp2p",
+      "hash": "QmUk7YJkvwPRBpJNzf1NF2wb4XPoBHFXqU4fKcJqo5s7hz",
+      "name": "go-libp2p-interface-pnet",
+      "version": "0.2.0"
     }
   ],
   "gxVersion": "0.9.1",

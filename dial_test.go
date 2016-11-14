@@ -14,6 +14,7 @@ import (
 
 	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
 	peer "github.com/libp2p/go-libp2p-peer"
 	transport "github.com/libp2p/go-libp2p-transport"
 	tcpt "github.com/libp2p/go-tcp-transport"
@@ -645,5 +646,78 @@ func TestConnectionTimeouts(t *testing.T) {
 	err = grc.CheckForLeaks(goroFilter)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestForcePNet(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ipnet.ForcePrivateNetwork = true
+	defer func() {
+		ipnet.ForcePrivateNetwork = false
+	}()
+
+	p := tu.RandPeerNetParamsOrFatal(t)
+	list, err := tcpt.NewTCPTransport().Listen(p.Addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = WrapTransportListenerWithProtector(ctx, list, p.ID, p.PrivKey, nil)
+	if err != ipnet.ErrNotInPrivateNetwork {
+		t.Fatal("Wrong error, expected error lack of protector")
+	}
+}
+
+type fakeProtector struct {
+	used bool
+}
+
+func (f *fakeProtector) Protect(c iconn.Conn) (iconn.Conn, error) {
+	f.used = true
+	return c, nil
+}
+
+func TestPNetIsUsed(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
+
+	p1Protec := &fakeProtector{}
+
+	list, err := tcpt.NewTCPTransport().Listen(p1.Addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	l1, err := WrapTransportListenerWithProtector(ctx, list, p1.ID, p1.PrivKey, p1Protec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1.Addr = l1.Multiaddr() // Addr has been determined by kernel.
+
+	d2 := NewDialer(p2.ID, p2.PrivKey, nil)
+	d2.Protector = &fakeProtector{}
+
+	d2.AddDialer(dialer(t, p2.Addr))
+	_, err = d2.Dial(ctx, p1.Addr, p1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = l1.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !p1Protec.used {
+		t.Error("Listener did not use protector for the connection")
+	}
+
+	if !d2.Protector.(*fakeProtector).used {
+		t.Error("Dialer did not use protector for the connection")
 	}
 }
