@@ -122,9 +122,9 @@
     },
     {
       "author": "libp2p",
-      "hash": "QmUk7YJkvwPRBpJNzf1NF2wb4XPoBHFXqU4fKcJqo5s7hz",
+      "hash": "QmWiiA36zUj6nBAd3enrW6HtVTX3vzD6kJc7vNProuZY2t",
       "name": "go-libp2p-interface-pnet",
-      "version": "0.2.0"
+      "version": "1.0.2"
     }
   ],
   "gxVersion": "0.9.1",
@@ -132,6 +132,6 @@
   "license": "",
   "name": "go-libp2p-conn",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.5.0"
+  "version": "1.5.1"
 }
 
