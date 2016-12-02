@@ -674,6 +674,10 @@ type fakeProtector struct {
 	used bool
 }
 
+func (f *fakeProtector) Fingerprint() []byte {
+	return make([]byte, 32)
+}
+
 func (f *fakeProtector) Protect(c iconn.Conn) (iconn.Conn, error) {
 	f.used = true
 	return c, nil
