@@ -21,12 +21,6 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmb912gdngC1UWwTkhuW8knyRbcWeu5kqkxBpveLmW8bSr",
-      "name": "go-ipfs-util",
-      "version": "1.2.0"
-    },
-    {
-      "author": "whyrusleeping",
       "hash": "QmfWDLQjGjVe4fr5CoztYW2DYYjRysMJrFe1RCsXLPTf46",
       "name": "go-libp2p-crypto",
       "version": "1.3.1"
@@ -92,9 +86,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmfXgCw5G7DgSuRtv1uvuWEZBbMqH4sMq93gkzaA1eCMeY",
+      "hash": "QmcpkzwqeqEnMgrmR4E48Ex52fcQU7eJz11gXk3qEit95q",
       "name": "go-multistream",
-      "version": "0.3.4"
+      "version": "0.3.5"
     },
     {
       "author": "whyrusleeping",
@@ -132,6 +126,6 @@
   "license": "",
   "name": "go-libp2p-conn",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.5.3"
+  "version": "1.5.4"
 }
 
