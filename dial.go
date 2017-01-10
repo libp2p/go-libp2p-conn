@@ -16,7 +16,7 @@ import (
 	transport "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
-	msmux "github.com/whyrusleeping/go-multistream"
+	msmux "github.com/multiformats/go-multistream"
 )
 
 type WrapFunc func(transport.Conn) transport.Conn

@@ -18,7 +18,7 @@ import (
 	transport "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
-	msmux "github.com/whyrusleeping/go-multistream"
+	msmux "github.com/multiformats/go-multistream"
 )
 
 const (

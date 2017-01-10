@@ -20,7 +20,7 @@ import (
 	tcpt "github.com/libp2p/go-tcp-transport"
 	tu "github.com/libp2p/go-testutil"
 	ma "github.com/multiformats/go-multiaddr"
-	msmux "github.com/whyrusleeping/go-multistream"
+	msmux "github.com/multiformats/go-multistream"
 	grc "github.com/whyrusleeping/gorocheck"
 )
 
