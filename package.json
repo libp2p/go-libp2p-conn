@@ -63,13 +63,13 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmUE7L9KeQswGjZi1vgyFMEyXWgZeo6HWiyNzMxzeNM4o1",
+      "hash": "QmRSpwchQJRgng8vZ8EeLkxJjQqEK2taAXi1DXJmnnnEcz",
       "name": "go-tcp-transport",
       "version": "1.1.0"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmR4YrM1DdvYmox249o8aday8oiotkcsT1Qzv42ujPEQDb",
+      "hash": "QmVpYwkpCJLSLpEY9tUbDQjCVdEVusgibpE9TopF5MPoSS",
       "name": "go-libp2p-transport",
       "version": "2.2.1"
     },
@@ -98,7 +98,7 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmb86KiitngVm5AGQ18viwCBwwcTvULAtz3X74YWKAevnc",
+      "hash": "QmPB5aAzt2wo5Xk8SoZi6y2oFN7shQMvYWgduMATojkdpj",
       "name": "go-addr-util",
       "version": "1.1.1"
     },
@@ -110,13 +110,13 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmZ3SZqQQYBu46wdtG4ihYY75KDX3CoDLoEqhRPh5ym4j2",
+      "hash": "QmcYnysCkyGezY6k6MQ1yHHdrRiZaU9x3M9Y1tE9qZ5hD2",
       "name": "go-libp2p-interface-conn",
       "version": "0.4.0"
     },
     {
       "author": "libp2p",
-      "hash": "QmbdmZCXB5AGQmnQbt9ai3YcGkS4zE4ozUyC7DMT5JBGAS",
+      "hash": "QmUxRRPqCRmjgZajYGDhUt4MNZFvT8sgry7YkA4ap7qLUP",
       "name": "go-libp2p-interface-pnet",
       "version": "0.2.0"
     }
@@ -126,6 +126,6 @@
   "license": "",
   "name": "go-libp2p-conn",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.5.9"
+  "version": "1.5.10"
 }
 
