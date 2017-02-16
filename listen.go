@@ -87,15 +87,6 @@ func (l *listener) Accept() (transport.Conn, error) {
 			return nil, con.err
 		}
 
-		if l.protec != nil {
-			pc, err := l.protec.Protect(con.conn)
-			if err != nil {
-				con.conn.Close()
-				return nil, err
-			}
-			con.conn = pc
-		}
-
 		c, err := newSingleConn(l.ctx, l.local, "", con.conn)
 		if err != nil {
 			con.conn.Close()
@@ -183,10 +174,19 @@ func (l *listener) handleIncoming() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			if l.protec != nil {
+				pc, err := l.protec.Protect(maconn)
+				if err != nil {
+					maconn.Close()
+					log.Warning("protector failed: ", err)
+				}
+				maconn = pc
+			}
+
 			maconn.SetReadDeadline(time.Now().Add(NegotiateReadTimeout))
 			_, _, err = l.mux.Negotiate(maconn)
 			if err != nil {
-				log.Info("incoming conn: negotiation of crypto protocol failed: ", err)
+				log.Warning("incoming conn: negotiation of crypto protocol failed: ", err)
 				maconn.Close()
 				return
 			}
