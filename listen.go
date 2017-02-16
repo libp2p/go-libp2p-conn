@@ -87,6 +87,15 @@ func (l *listener) Accept() (transport.Conn, error) {
 			return nil, con.err
 		}
 
+		if l.protec != nil {
+			pc, err := l.protec.Protect(con.conn)
+			if err != nil {
+				con.conn.Close()
+				return nil, err
+			}
+			con.conn = pc
+		}
+
 		c, err := newSingleConn(l.ctx, l.local, "", con.conn)
 		if err != nil {
 			con.conn.Close()
@@ -94,14 +103,6 @@ func (l *listener) Accept() (transport.Conn, error) {
 				continue
 			}
 			return nil, err
-		}
-		if l.protec != nil {
-			pc, err := l.protec.Protect(c)
-			if err != nil {
-				con.conn.Close()
-				return nil, err
-			}
-			c = pc
 		}
 
 		if l.privk == nil || !iconn.EncryptConnections {

@@ -678,7 +678,7 @@ func (f *fakeProtector) Fingerprint() []byte {
 	return make([]byte, 32)
 }
 
-func (f *fakeProtector) Protect(c iconn.Conn) (iconn.Conn, error) {
+func (f *fakeProtector) Protect(c transport.Conn) (transport.Conn, error) {
 	f.used = true
 	return c, nil
 }
