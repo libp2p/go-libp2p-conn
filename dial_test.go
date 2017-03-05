@@ -678,9 +678,32 @@ func (f *fakeProtector) Fingerprint() []byte {
 	return make([]byte, 32)
 }
 
-func (f *fakeProtector) Protect(c iconn.Conn) (iconn.Conn, error) {
+func (f *fakeProtector) Protect(c transport.Conn) (transport.Conn, error) {
 	f.used = true
-	return c, nil
+	return &rot13Crypt{c}, nil
+}
+
+type rot13Crypt struct {
+	transport.Conn
+}
+
+func (r *rot13Crypt) Read(b []byte) (int, error) {
+	n, err := r.Conn.Read(b)
+	if err != nil {
+		return n, err
+	}
+
+	for i, _ := range b {
+		b[i] = byte((uint8(b[i]) - 13) & 0xff)
+	}
+	return n, err
+}
+
+func (r *rot13Crypt) Write(b []byte) (int, error) {
+	for i, _ := range b {
+		b[i] = byte((uint8(b[i]) + 13) & 0xff)
+	}
+	return r.Conn.Write(b)
 }
 
 func TestPNetIsUsed(t *testing.T) {

@@ -95,14 +95,6 @@ func (l *listener) Accept() (transport.Conn, error) {
 			}
 			return nil, err
 		}
-		if l.protec != nil {
-			pc, err := l.protec.Protect(c)
-			if err != nil {
-				con.conn.Close()
-				return nil, err
-			}
-			c = pc
-		}
 
 		if l.privk == nil || !iconn.EncryptConnections {
 			log.Warning("listener %s listening INSECURELY!", l)
@@ -182,10 +174,19 @@ func (l *listener) handleIncoming() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			if l.protec != nil {
+				pc, err := l.protec.Protect(maconn)
+				if err != nil {
+					maconn.Close()
+					log.Warning("protector failed: ", err)
+				}
+				maconn = pc
+			}
+
 			maconn.SetReadDeadline(time.Now().Add(NegotiateReadTimeout))
 			_, _, err = l.mux.Negotiate(maconn)
 			if err != nil {
-				log.Info("incoming conn: negotiation of crypto protocol failed: ", err)
+				log.Warning("incoming conn: negotiation of crypto protocol failed: ", err)
 				maconn.Close()
 				return
 			}

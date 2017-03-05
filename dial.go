@@ -99,6 +99,16 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 			return
 		}
 
+		if d.Protector != nil {
+			pconn, err := d.Protector.Protect(maconn)
+			if err != nil {
+				maconn.Close()
+				errOut = err
+				return
+			}
+			maconn = pconn
+		}
+
 		if d.Wrapper != nil {
 			maconn = d.Wrapper(maconn)
 		}
@@ -124,16 +134,6 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 			errOut = err
 			return
 		}
-		if d.Protector != nil {
-			pconn, err := d.Protector.Protect(c)
-			if err != nil {
-				c.Close()
-				errOut = err
-				return
-			}
-			c = pconn
-		}
-
 		if d.PrivateKey == nil || !iconn.EncryptConnections {
 			log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
 			connOut = c
