@@ -63,9 +63,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmV2WTGC9xu6e8WoBa17mDEpdnCRbhSNxP9goqXAAC2reQ",
+      "hash": "QmdQcv14hCd41WEzNA4avJohJR5sdPqVgFtXZtDz6MTCKx",
       "name": "go-tcp-transport",
-      "version": "1.2.1"
+      "version": "1.2.2"
     },
     {
       "author": "whyrusleeping",
@@ -126,6 +126,6 @@
   "license": "",
   "name": "go-libp2p-conn",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.6.8"
+  "version": "1.6.9"
 }
 
