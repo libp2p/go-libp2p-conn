@@ -98,9 +98,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmcx4KoZ91XS6izLjdkujAMAunAS1YuTgfgASgYaZF5GkR",
+      "hash": "QmNyxhT1VqCWtgPrX4d1UrevixVvn8QyZJMuzdvSZXUyVA",
       "name": "go-addr-util",
-      "version": "1.2.0"
+      "version": "1.2.1"
     },
     {
       "author": "whyrusleeping",
@@ -126,6 +126,6 @@
   "license": "",
   "name": "go-libp2p-conn",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.6.10"
+  "version": "1.6.11"
 }
 
