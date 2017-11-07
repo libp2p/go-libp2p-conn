@@ -19,6 +19,11 @@ import (
 	msmux "github.com/multiformats/go-multistream"
 )
 
+// DialTimeout is the maximum duration a Dial is allowed to take.
+// This includes the time between dialing the raw network connection,
+// protocol selection as well the handshake, if applicable.
+var DialTimeout = 60 * time.Second
+
 type WrapFunc func(transport.Conn) transport.Conn
 
 // Dialer is an object that can open connections. We could have a "convenience"
@@ -68,6 +73,10 @@ func (d *Dialer) String() string {
 // Ensures raddr is part of peer.Addresses()
 // Example: d.DialAddr(ctx, peer.Addresses()[0], peer)
 func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (iconn.Conn, error) {
+	deadline := time.Now().Add(DialTimeout)
+	ctx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+
 	logdial := lgbl.Dial("conn", d.LocalPeer, remote, nil, raddr)
 	logdial["encrypted"] = (d.PrivateKey != nil) // log wether this will be an encrypted dial or not.
 	logdial["inPrivNet"] = (d.Protector != nil)
@@ -118,22 +127,18 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 			cryptoProtoChoice = NoEncryptionTag
 		}
 
-		maconn.SetReadDeadline(time.Now().Add(NegotiateReadTimeout))
+		maconn.SetDeadline(deadline)
 
 		err = msmux.SelectProtoOrFail(cryptoProtoChoice, maconn)
-		if err != nil {
-			errOut = err
-			return
-		}
-
-		maconn.SetReadDeadline(time.Time{})
-
-		c, err := newSingleConn(ctx, d.LocalPeer, remote, maconn)
 		if err != nil {
 			maconn.Close()
 			errOut = err
 			return
 		}
+
+		maconn.SetDeadline(time.Time{})
+
+		c := newSingleConn(ctx, d.LocalPeer, remote, maconn)
 		if d.PrivateKey == nil || !iconn.EncryptConnections {
 			log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
 			connOut = c

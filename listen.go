@@ -26,10 +26,14 @@ const (
 	NoEncryptionTag = "/plaintext/1.0.0"
 )
 
-var (
-	connAcceptBuffer     = 32
-	NegotiateReadTimeout = time.Second * 60
-)
+var connAcceptBuffer = 32
+
+// AcceptTimeout is the maximum duration an Accept is allowed to take.
+// This includes the time between accepting the raw network connection,
+// protocol selection as well the handshake, if applicable.
+// TODO: We don't fully obey this as it will screw with lazy secio handshakes.
+// Fix this once we merge https://github.com/libp2p/go-libp2p-conn/pull/9.
+var AcceptTimeout = 60 * time.Second
 
 // ConnWrapper is any function that wraps a raw multiaddr connection
 type ConnWrapper func(transport.Conn) transport.Conn
@@ -82,31 +86,8 @@ type connErr struct {
 // Accept waits for and returns the next connection to the listener.
 // Note that unfortunately this
 func (l *listener) Accept() (transport.Conn, error) {
-	for con := range l.incoming {
-		if con.err != nil {
-			return nil, con.err
-		}
-
-		c, err := newSingleConn(l.ctx, l.local, "", con.conn)
-		if err != nil {
-			con.conn.Close()
-			if l.catcher.IsTemporary(err) {
-				continue
-			}
-			return nil, err
-		}
-
-		if l.privk == nil || !iconn.EncryptConnections {
-			log.Warning("listener %s listening INSECURELY!", l)
-			return c, nil
-		}
-		sc, err := newSecureConn(l.ctx, l.privk, c)
-		if err != nil {
-			con.conn.Close()
-			log.Infof("ignoring conn we failed to secure: %s %s", err, c)
-			continue
-		}
-		return sc, nil
+	if c, ok := <-l.incoming; ok {
+		return c.conn, c.err
 	}
 	return nil, fmt.Errorf("listener is closed")
 }
@@ -166,35 +147,72 @@ func (l *listener) handleIncoming() {
 			maconn.Close()
 			continue
 		}
-		// If we have a wrapper func, wrap this conn
-		if l.wrapper != nil {
-			maconn = l.wrapper(maconn)
-		}
-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if l.protec != nil {
-				pc, err := l.protec.Protect(maconn)
-				if err != nil {
-					maconn.Close()
-					log.Warning("protector failed: ", err)
+
+			ctx, cancel := context.WithTimeout(l.ctx, AcceptTimeout)
+			defer cancel()
+
+			result := make(chan transport.Conn, 1)
+
+			wg.Add(1)
+			go func(conn transport.Conn) {
+				defer wg.Done()
+				defer close(result)
+
+				if l.protec != nil {
+					pc, err := l.protec.Protect(conn)
+					if err != nil {
+						conn.Close()
+						log.Warning("protector failed: ", err)
+						return
+					}
+					conn = pc
 				}
-				maconn = pc
-			}
 
-			maconn.SetReadDeadline(time.Now().Add(NegotiateReadTimeout))
-			_, _, err = l.mux.Negotiate(maconn)
-			if err != nil {
-				log.Warning("incoming conn: negotiation of crypto protocol failed: ", err)
+				// If we have a wrapper func, wrap this conn
+				if l.wrapper != nil {
+					conn = l.wrapper(conn)
+				}
+
+				// Negotiate secio (or no secio).
+				_, _, err = l.mux.Negotiate(conn)
+				if err != nil {
+					conn.Close()
+					log.Warning("incoming conn: negotiation of crypto protocol failed: ", err)
+					return
+				}
+
+				insecureConn := newSingleConn(ctx, l.local, "", conn)
+
+				if l.privk != nil && iconn.EncryptConnections {
+					secureConn, err := newSecureConn(ctx, l.privk, insecureConn)
+					if err != nil {
+						conn.Close()
+						log.Infof("ignoring conn we failed to secure: %s %s", err, insecureConn)
+						return
+					}
+					conn = secureConn
+				} else {
+					log.Warning("listener %s listening INSECURELY!", l)
+					conn = insecureConn
+				}
+
+				result <- conn
+			}(maconn)
+
+			select {
+			case <-ctx.Done():
+				log.Warning("incoming conn: conn not established in time:",
+					ctx.Err().Error())
+				// Will cause the other go routine to bail.
 				maconn.Close()
-				return
+			case c, ok := <-result: // connection completed (or errored)
+				if ok {
+					l.incoming <- connErr{conn: c}
+				}
 			}
-
-			// clear read readline
-			maconn.SetReadDeadline(time.Time{})
-
-			l.incoming <- connErr{conn: maconn}
 		}()
 	}
 }

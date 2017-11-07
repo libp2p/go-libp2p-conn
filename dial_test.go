@@ -537,9 +537,9 @@ func TestConnectionTimeouts(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	old := NegotiateReadTimeout
-	NegotiateReadTimeout = time.Second * 5
-	defer func() { NegotiateReadTimeout = old }()
+	old := DialTimeout
+	DialTimeout = time.Second * 5
+	defer func() { DialTimeout = old }()
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
 
