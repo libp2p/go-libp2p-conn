@@ -517,7 +517,7 @@ func TestConcurrentAccept(t *testing.T) {
 	if took > limit {
 		t.Fatal("took too long!")
 	}
-	log.Errorf("took: %s (less than %s)", took, limit)
+	log.Infof("took: %s (less than %s)", took, limit)
 	l1.Close()
 	wg.Wait()
 	cancel()
