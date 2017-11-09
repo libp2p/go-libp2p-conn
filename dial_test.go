@@ -409,6 +409,7 @@ func TestHangingAccept(t *testing.T) {
 	defer cancel()
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
 
 	l1, err := Listen(ctx, p1.Addr, p1.ID, p1.PrivKey)
 	if err != nil {
@@ -430,21 +431,18 @@ func TestHangingAccept(t *testing.T) {
 		// ensure that the first conn hits first
 		time.Sleep(time.Millisecond * 50)
 
-		con2, err := net.Dial("tcp", l1.Addr().String())
-		if err != nil {
-			t.Error("second dial failed: ", err)
-		}
-		defer con2.Close()
-
-		err = msmux.SelectProtoOrFail(SecioTag, con2)
+		d := NewDialer(p2.ID, p2.PrivKey, nil)
+		con2, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 		if err != nil {
 			t.Error("msmux select failed: ", err)
 		}
+		defer con2.Close()
 
 		_, err = con2.Write([]byte("test"))
 		if err != nil {
 			t.Error("con write failed: ", err)
 		}
+
 	}()
 
 	c, err := l1.Accept()
@@ -466,6 +464,7 @@ func TestConcurrentAccept(t *testing.T) {
 	defer cancel()
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
 
 	l1, err := Listen(ctx, p1.Addr, p1.ID, p1.PrivKey)
 	if err != nil {
@@ -485,19 +484,38 @@ func TestConcurrentAccept(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			con, err := net.Dial("tcp", l1.Addr().String())
+
+			d, err := tcpt.NewTCPTransport().Dialer(p2.Addr)
+			if err != nil {
+				t.Error("failed to construct dialer: ", err)
+				return
+			}
+
+			maconn, err := d.DialContext(ctx, p1.Addr)
 			if err != nil {
 				log.Error(err)
 				t.Error("first dial failed: ", err)
 				return
 			}
 			// hang this connection
-			defer con.Close()
+			time.Sleep(delay) // why we have this mess...
 
-			time.Sleep(delay)
-			err = msmux.SelectProtoOrFail(SecioTag, con)
+			err = msmux.SelectProtoOrFail(SecioTag, maconn)
 			if err != nil {
 				t.Error(err)
+				maconn.Close()
+				return
+			}
+			c2, err := newSecureConn(
+				ctx,
+				p2.PrivKey,
+				newSingleConn(ctx, p2.ID, p1.ID, maconn),
+			)
+			if err != nil {
+				maconn.Close()
+				t.Error(err)
+			} else {
+				c2.Close()
 			}
 		}()
 	}
@@ -578,19 +596,15 @@ func TestConnectionTimeouts(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			con, err := net.Dial("tcp", l1.Addr().String())
+			p := tu.RandPeerNetParamsOrFatal(t)
+			d := NewDialer(p.ID, p.PrivKey, nil)
+			con, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 			if err != nil {
 				log.Error(err)
-				t.Error("first dial failed: ", err)
+				t.Error("dial failed: ", err)
 				return
 			}
-			defer con.Close()
-
-			// dial these ones through
-			err = msmux.SelectProtoOrFail(SecioTag, con)
-			if err != nil {
-				t.Error(err)
-			}
+			con.Close()
 		}()
 	}
 
@@ -613,19 +627,15 @@ func TestConnectionTimeouts(t *testing.T) {
 	wg.Wait()
 
 	go func() {
-		con, err := net.Dial("tcp", l1.Addr().String())
+		p := tu.RandPeerNetParamsOrFatal(t)
+		d := NewDialer(p.ID, p.PrivKey, nil)
+		con, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 		if err != nil {
 			log.Error(err)
-			t.Error("first dial failed: ", err)
+			t.Error("dial failed: ", err)
 			return
 		}
-		defer con.Close()
-
-		// dial these ones through
-		err = msmux.SelectProtoOrFail(SecioTag, con)
-		if err != nil {
-			t.Error(err)
-		}
+		con.Close()
 	}()
 
 	// make sure we can dial in still after a bunch of timeouts
