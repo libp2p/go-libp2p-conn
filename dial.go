@@ -22,7 +22,7 @@ import (
 // DialTimeout is the maximum duration a Dial is allowed to take.
 // This includes the time between dialing the raw network connection,
 // protocol selection as well the handshake, if applicable.
-var DialTimeout = 60 * time.Second
+var DialTimeout = 30 * time.Second
 
 type WrapFunc func(transport.Conn) transport.Conn
 

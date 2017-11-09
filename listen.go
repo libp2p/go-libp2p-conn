@@ -31,9 +31,7 @@ var connAcceptBuffer = 32
 // AcceptTimeout is the maximum duration an Accept is allowed to take.
 // This includes the time between accepting the raw network connection,
 // protocol selection as well the handshake, if applicable.
-// TODO: We don't fully obey this as it will screw with lazy secio handshakes.
-// Fix this once we merge https://github.com/libp2p/go-libp2p-conn/pull/9.
-var AcceptTimeout = 60 * time.Second
+var AcceptTimeout = 30 * time.Second
 
 // ConnWrapper is any function that wraps a raw multiaddr connection
 type ConnWrapper func(transport.Conn) transport.Conn
