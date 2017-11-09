@@ -365,6 +365,7 @@ func TestFailedAccept(t *testing.T) {
 	defer cancel()
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
 
 	l1, err := Listen(ctx, p1.Addr, p1.ID, p1.PrivKey)
 	if err != nil {
@@ -386,16 +387,12 @@ func TestFailedAccept(t *testing.T) {
 
 		con.Close()
 
-		con, err = net.Dial("tcp", l1.Addr().String())
-		if err != nil {
-			t.Error("second dial failed: ", err)
-		}
-		defer con.Close()
-
-		err = msmux.SelectProtoOrFail(SecioTag, con)
+		d := NewDialer(p2.ID, p2.PrivKey, nil)
+		con2, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 		if err != nil {
 			t.Error("msmux select failed: ", err)
 		}
+		con2.Close()
 	}()
 
 	c, err := l1.Accept()
