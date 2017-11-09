@@ -552,9 +552,13 @@ func TestConnectionTimeouts(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	old := DialTimeout
+	defer func(oldD, oldA time.Duration) {
+		DialTimeout = oldD
+		AcceptTimeout = oldD
+	}(DialTimeout, AcceptTimeout)
+
 	DialTimeout = time.Second * 5
-	defer func() { DialTimeout = old }()
+	AcceptTimeout = time.Second * 5
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
 
