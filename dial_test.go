@@ -267,11 +267,9 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 	d2.AddDialer(dialer(t, p2.Addr))
 
 	errs := make(chan error, 100)
-	done := make(chan struct{}, 1)
 	gotclosed := make(chan struct{}, 1)
 	go func() {
-		defer func() { done <- struct{}{} }()
-
+		defer close(gotclosed)
 		c, err := l1.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "closed") {
@@ -281,12 +279,12 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 			errs <- err
 		}
 
-		if _, err := c.Write([]byte("hello")); err != nil {
-			gotclosed <- struct{}{}
-			return
+		_, err = c.Read(make([]byte, 10))
+		if err != io.EOF {
+			errs <- fmt.Errorf("expected to read an eof")
 		}
-
-		errs <- fmt.Errorf("wrote to conn")
+		gotclosed <- struct{}{}
+		return
 	}()
 
 	c, err := d2.Dial(ctx, p1.Addr, p1.ID)
@@ -308,16 +306,18 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 	readerrs()
 
 	l1.Close()
-	<-done
 	cancel()
 	readerrs()
 	close(errs)
 
 	select {
-	case <-gotclosed:
+	case _, ok := <-gotclosed:
+		if ok {
+			return
+		}
 	default:
-		t.Error("did not get closed")
 	}
+	t.Error("did not get closed")
 }
 
 // we dont do a handshake with singleConn, so cant "close early."
