@@ -711,10 +711,11 @@ func (r *rot13Crypt) Read(b []byte) (int, error) {
 }
 
 func (r *rot13Crypt) Write(b []byte) (int, error) {
+	rotated := make([]byte, len(b))
 	for i, _ := range b {
-		b[i] = byte((uint8(b[i]) + 13) & 0xff)
+		rotated[i] = byte((uint8(b[i]) + 13) & 0xff)
 	}
-	return r.Conn.Write(b)
+	return r.Conn.Write(rotated)
 }
 
 func TestPNetIsUsed(t *testing.T) {
