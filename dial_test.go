@@ -252,11 +252,15 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 		t.Log("testing securely")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
 	l1, err := Listen(ctx, p1.Addr, p1.ID, key1)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer l1.Close()
+
 	p1.Addr = l1.Multiaddr() // Addr has been determined by kernel.
 
 	// lol nesting
@@ -266,24 +270,23 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 	}
 	d2.AddDialer(dialer(t, p2.Addr))
 
-	errs := make(chan error, 100)
-	gotclosed := make(chan struct{}, 1)
+	results := make(chan error, 10)
 	go func() {
-		defer close(gotclosed)
+		defer close(results)
 		c, err := l1.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "closed") {
-				gotclosed <- struct{}{}
+				results <- nil
 				return
 			}
-			errs <- err
+			results <- err
 		}
 
 		_, err = c.Read(make([]byte, 10))
 		if err != io.EOF {
-			errs <- fmt.Errorf("expected to read an eof")
+			results <- fmt.Errorf("expected to read an eof")
 		}
-		gotclosed <- struct{}{}
+		results <- nil
 		return
 	}()
 
@@ -293,31 +296,17 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 	}
 	c.Close() // close it early.
 
-	readerrs := func() {
-		for {
-			select {
-			case e := <-errs:
-				t.Error(e)
-			default:
-				return
-			}
+	for {
+		result, ok := <-results
+		if !ok {
+			t.Fatal("did not get closed")
+		}
+		if result == nil {
+			break
+		} else {
+			t.Error(result)
 		}
 	}
-	readerrs()
-
-	l1.Close()
-	cancel()
-	readerrs()
-	close(errs)
-
-	select {
-	case _, ok := <-gotclosed:
-		if ok {
-			return
-		}
-	default:
-	}
-	t.Error("did not get closed")
 }
 
 // we dont do a handshake with singleConn, so cant "close early."
