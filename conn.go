@@ -34,7 +34,7 @@ type singleConn struct {
 }
 
 // newConn constructs a new connection
-func newSingleConn(ctx context.Context, local, remote peer.ID, maconn tpt.Conn) (iconn.Conn, error) {
+func newSingleConn(ctx context.Context, local, remote peer.ID, maconn tpt.Conn) iconn.Conn {
 	ml := lgbl.Dial("conn", local, remote, maconn.LocalMultiaddr(), maconn.RemoteMultiaddr())
 
 	conn := &singleConn{
@@ -45,7 +45,7 @@ func newSingleConn(ctx context.Context, local, remote peer.ID, maconn tpt.Conn) 
 	}
 
 	log.Debugf("newSingleConn %p: %v to %v", conn, local, remote)
-	return conn, nil
+	return conn
 }
 
 // close is the internal close function, called by ContextCloser.Close

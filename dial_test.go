@@ -252,11 +252,15 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 		t.Log("testing securely")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
 	l1, err := Listen(ctx, p1.Addr, p1.ID, key1)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer l1.Close()
+
 	p1.Addr = l1.Multiaddr() // Addr has been determined by kernel.
 
 	// lol nesting
@@ -266,27 +270,24 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 	}
 	d2.AddDialer(dialer(t, p2.Addr))
 
-	errs := make(chan error, 100)
-	done := make(chan struct{}, 1)
-	gotclosed := make(chan struct{}, 1)
+	results := make(chan error, 10)
 	go func() {
-		defer func() { done <- struct{}{} }()
-
+		defer close(results)
 		c, err := l1.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "closed") {
-				gotclosed <- struct{}{}
+				results <- nil
 				return
 			}
-			errs <- err
+			results <- err
 		}
 
-		if _, err := c.Write([]byte("hello")); err != nil {
-			gotclosed <- struct{}{}
-			return
+		_, err = c.Read(make([]byte, 10))
+		if err != io.EOF {
+			results <- fmt.Errorf("expected to read an eof")
 		}
-
-		errs <- fmt.Errorf("wrote to conn")
+		results <- nil
+		return
 	}()
 
 	c, err := d2.Dial(ctx, p1.Addr, p1.ID)
@@ -295,28 +296,16 @@ func testDialerCloseEarly(t *testing.T, secure bool) {
 	}
 	c.Close() // close it early.
 
-	readerrs := func() {
-		for {
-			select {
-			case e := <-errs:
-				t.Error(e)
-			default:
-				return
-			}
+	for {
+		result, ok := <-results
+		if !ok {
+			t.Fatal("did not get closed")
 		}
-	}
-	readerrs()
-
-	l1.Close()
-	<-done
-	cancel()
-	readerrs()
-	close(errs)
-
-	select {
-	case <-gotclosed:
-	default:
-		t.Error("did not get closed")
+		if result == nil {
+			break
+		} else {
+			t.Error(result)
+		}
 	}
 }
 
@@ -365,6 +354,7 @@ func TestFailedAccept(t *testing.T) {
 	defer cancel()
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
 
 	l1, err := Listen(ctx, p1.Addr, p1.ID, p1.PrivKey)
 	if err != nil {
@@ -386,16 +376,12 @@ func TestFailedAccept(t *testing.T) {
 
 		con.Close()
 
-		con, err = net.Dial("tcp", l1.Addr().String())
-		if err != nil {
-			t.Error("second dial failed: ", err)
-		}
-		defer con.Close()
-
-		err = msmux.SelectProtoOrFail(SecioTag, con)
+		d := NewDialer(p2.ID, p2.PrivKey, nil)
+		con2, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 		if err != nil {
 			t.Error("msmux select failed: ", err)
 		}
+		con2.Close()
 	}()
 
 	c, err := l1.Accept()
@@ -412,6 +398,7 @@ func TestHangingAccept(t *testing.T) {
 	defer cancel()
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
 
 	l1, err := Listen(ctx, p1.Addr, p1.ID, p1.PrivKey)
 	if err != nil {
@@ -433,21 +420,18 @@ func TestHangingAccept(t *testing.T) {
 		// ensure that the first conn hits first
 		time.Sleep(time.Millisecond * 50)
 
-		con2, err := net.Dial("tcp", l1.Addr().String())
-		if err != nil {
-			t.Error("second dial failed: ", err)
-		}
-		defer con2.Close()
-
-		err = msmux.SelectProtoOrFail(SecioTag, con2)
+		d := NewDialer(p2.ID, p2.PrivKey, nil)
+		con2, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 		if err != nil {
 			t.Error("msmux select failed: ", err)
 		}
+		defer con2.Close()
 
 		_, err = con2.Write([]byte("test"))
 		if err != nil {
 			t.Error("con write failed: ", err)
 		}
+
 	}()
 
 	c, err := l1.Accept()
@@ -469,6 +453,7 @@ func TestConcurrentAccept(t *testing.T) {
 	defer cancel()
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
 
 	l1, err := Listen(ctx, p1.Addr, p1.ID, p1.PrivKey)
 	if err != nil {
@@ -488,19 +473,38 @@ func TestConcurrentAccept(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			con, err := net.Dial("tcp", l1.Addr().String())
+
+			d, err := tcpt.NewTCPTransport().Dialer(p2.Addr)
+			if err != nil {
+				t.Error("failed to construct dialer: ", err)
+				return
+			}
+
+			maconn, err := d.DialContext(ctx, p1.Addr)
 			if err != nil {
 				log.Error(err)
 				t.Error("first dial failed: ", err)
 				return
 			}
 			// hang this connection
-			defer con.Close()
+			time.Sleep(delay) // why we have this mess...
 
-			time.Sleep(delay)
-			err = msmux.SelectProtoOrFail(SecioTag, con)
+			err = msmux.SelectProtoOrFail(SecioTag, maconn)
 			if err != nil {
 				t.Error(err)
+				maconn.Close()
+				return
+			}
+			c2, err := newSecureConn(
+				ctx,
+				p2.PrivKey,
+				newSingleConn(ctx, p2.ID, p1.ID, maconn),
+			)
+			if err != nil {
+				maconn.Close()
+				t.Error(err)
+			} else {
+				c2.Close()
 			}
 		}()
 	}
@@ -520,7 +524,7 @@ func TestConcurrentAccept(t *testing.T) {
 	if took > limit {
 		t.Fatal("took too long!")
 	}
-	log.Errorf("took: %s (less than %s)", took, limit)
+	log.Infof("took: %s (less than %s)", took, limit)
 	l1.Close()
 	wg.Wait()
 	cancel()
@@ -537,9 +541,13 @@ func TestConnectionTimeouts(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	old := NegotiateReadTimeout
-	NegotiateReadTimeout = time.Second * 5
-	defer func() { NegotiateReadTimeout = old }()
+	defer func(oldD, oldA time.Duration) {
+		DialTimeout = oldD
+		AcceptTimeout = oldD
+	}(DialTimeout, AcceptTimeout)
+
+	DialTimeout = time.Second * 5
+	AcceptTimeout = time.Second * 5
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
 
@@ -581,19 +589,15 @@ func TestConnectionTimeouts(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			con, err := net.Dial("tcp", l1.Addr().String())
+			p := tu.RandPeerNetParamsOrFatal(t)
+			d := NewDialer(p.ID, p.PrivKey, nil)
+			con, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 			if err != nil {
 				log.Error(err)
-				t.Error("first dial failed: ", err)
+				t.Error("dial failed: ", err)
 				return
 			}
-			defer con.Close()
-
-			// dial these ones through
-			err = msmux.SelectProtoOrFail(SecioTag, con)
-			if err != nil {
-				t.Error(err)
-			}
+			con.Close()
 		}()
 	}
 
@@ -616,19 +620,15 @@ func TestConnectionTimeouts(t *testing.T) {
 	wg.Wait()
 
 	go func() {
-		con, err := net.Dial("tcp", l1.Addr().String())
+		p := tu.RandPeerNetParamsOrFatal(t)
+		d := NewDialer(p.ID, p.PrivKey, nil)
+		con, err := d.Dial(ctx, l1.Multiaddr(), p1.ID)
 		if err != nil {
 			log.Error(err)
-			t.Error("first dial failed: ", err)
+			t.Error("dial failed: ", err)
 			return
 		}
-		defer con.Close()
-
-		// dial these ones through
-		err = msmux.SelectProtoOrFail(SecioTag, con)
-		if err != nil {
-			t.Error(err)
-		}
+		con.Close()
 	}()
 
 	// make sure we can dial in still after a bunch of timeouts
@@ -700,10 +700,11 @@ func (r *rot13Crypt) Read(b []byte) (int, error) {
 }
 
 func (r *rot13Crypt) Write(b []byte) (int, error) {
+	rotated := make([]byte, len(b))
 	for i, _ := range b {
-		b[i] = byte((uint8(b[i]) + 13) & 0xff)
+		rotated[i] = byte((uint8(b[i]) + 13) & 0xff)
 	}
-	return r.Conn.Write(b)
+	return r.Conn.Write(rotated)
 }
 
 func TestPNetIsUsed(t *testing.T) {
