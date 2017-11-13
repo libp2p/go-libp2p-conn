@@ -31,7 +31,7 @@ var connAcceptBuffer = 32
 // AcceptTimeout is the maximum duration an Accept is allowed to take.
 // This includes the time between accepting the raw network connection,
 // protocol selection as well the handshake, if applicable.
-var AcceptTimeout = 30 * time.Second
+var AcceptTimeout = 60 * time.Second
 
 // ConnWrapper is any function that wraps a raw multiaddr connection
 type ConnWrapper func(transport.Conn) transport.Conn
