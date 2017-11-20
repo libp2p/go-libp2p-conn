@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	msgio "github.com/jbenet/go-msgio"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	msgio "github.com/libp2p/go-msgio"
 	travis "github.com/libp2p/go-testutil/ci/travis"
 )
 
