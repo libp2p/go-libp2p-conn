@@ -7,12 +7,12 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log"
-	mpool "github.com/jbenet/go-msgio/mpool"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	lgbl "github.com/libp2p/go-libp2p-loggables"
 	peer "github.com/libp2p/go-libp2p-peer"
 	tpt "github.com/libp2p/go-libp2p-transport"
+	mpool "github.com/libp2p/go-msgio/mpool"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
