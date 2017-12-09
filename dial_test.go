@@ -749,3 +749,38 @@ func TestPNetIsUsed(t *testing.T) {
 		t.Error("Dialer did not use protector for the connection")
 	}
 }
+
+func TestWrongPeer(t *testing.T) {
+	// t.Skip("Skipping in favor of another test")
+
+	p1 := tu.RandPeerNetParamsOrFatal(t)
+	p2 := tu.RandPeerNetParamsOrFatal(t)
+	p3 := tu.RandPeerNetParamsOrFatal(t)
+
+	key1 := p1.PrivKey
+	key2 := p2.PrivKey
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	l1, err := Listen(ctx, p1.Addr, p1.ID, key1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l1.Close()
+	p1.Addr = l1.Multiaddr() // Addr has been determined by kernel.
+
+	d2 := &Dialer{
+		LocalPeer:  p2.ID,
+		PrivateKey: key2,
+	}
+	d2.AddDialer(dialer(t, p2.Addr))
+
+	go echoListen(ctx, l1)
+
+	c, err := d2.Dial(ctx, p1.Addr, p3.ID)
+	if err == nil {
+		c.Close()
+		t.Fatal("expected error when dialing peer")
+	}
+}
