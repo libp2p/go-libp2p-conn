@@ -170,6 +170,16 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 		return nil, errOut
 	}
 
+	// if the connection is not to whom we thought it would be...
+	connRemote := connOut.RemotePeer()
+	if connRemote != remote {
+		err := connOut.Close()
+		errOut = fmt.Errorf("misdial to %s through %s (got %s): %s", remote, raddr, connRemote, err)
+		logdial["error"] = errOut.Error()
+		logdial["dial"] = "failure"
+		return nil, errOut
+	}
+
 	logdial["dial"] = "success"
 	return connOut, nil
 }
