@@ -89,99 +89,77 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 		return nil, ipnet.ErrNotInPrivateNetwork
 	}
 
-	var connOut iconn.Conn
-	var errOut error
-	done := make(chan struct{})
-
-	// do it async to ensure we respect don contexteone
-	go func() {
-		defer func() {
-			select {
-			case done <- struct{}{}:
-			case <-ctx.Done():
-			}
-		}()
-
-		maconn, err := d.rawConnDial(ctx, raddr, remote)
+	var err error
+	defer func() {
 		if err != nil {
-			errOut = err
-			return
+			logdial["error"] = err.Error()
+			logdial["dial"] = "failure"
 		}
-
-		if d.Protector != nil {
-			pconn, err := d.Protector.Protect(maconn)
-			if err != nil {
-				maconn.Close()
-				errOut = err
-				return
-			}
-			maconn = pconn
-		}
-
-		if d.Wrapper != nil {
-			maconn = d.Wrapper(maconn)
-		}
-
-		cryptoProtoChoice := SecioTag
-		if !iconn.EncryptConnections || d.PrivateKey == nil {
-			cryptoProtoChoice = NoEncryptionTag
-		}
-
-		maconn.SetDeadline(deadline)
-
-		err = msmux.SelectProtoOrFail(cryptoProtoChoice, maconn)
-		if err != nil {
-			maconn.Close()
-			errOut = err
-			return
-		}
-
-		maconn.SetDeadline(time.Time{})
-
-		c := newSingleConn(ctx, d.LocalPeer, remote, maconn)
-		if d.PrivateKey == nil || !iconn.EncryptConnections {
-			log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
-			connOut = c
-			return
-		}
-
-		c2, err := newSecureConn(ctx, d.PrivateKey, c)
-		if err != nil {
-			errOut = err
-			c.Close()
-			return
-		}
-
-		connOut = c2
 	}()
 
-	select {
-	case <-ctx.Done():
-		logdial["error"] = ctx.Err().Error()
-		logdial["dial"] = "failure"
-		return nil, ctx.Err()
-	case <-done:
-		// whew, finished.
+	maconn, err := d.rawConnDial(ctx, raddr, remote)
+	if err != nil {
+		return nil, err
 	}
 
-	if errOut != nil {
-		logdial["error"] = errOut.Error()
-		logdial["dial"] = "failure"
-		return nil, errOut
+	defer func() {
+		if err != nil {
+			maconn.Close()
+		}
+	}()
+
+	if d.Protector != nil {
+		maconn, err = d.Protector.Protect(maconn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if d.Wrapper != nil {
+		maconn = d.Wrapper(maconn)
+	}
+
+	cryptoProtoChoice := SecioTag
+	if !iconn.EncryptConnections || d.PrivateKey == nil {
+		cryptoProtoChoice = NoEncryptionTag
+	}
+
+	selectResult := make(chan error, 1)
+	go func() {
+		selectResult <- msmux.SelectProtoOrFail(cryptoProtoChoice, maconn)
+	}()
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+		return nil, err
+	case err = <-selectResult:
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	c := newSingleConn(ctx, d.LocalPeer, remote, maconn)
+	if d.PrivateKey == nil || !iconn.EncryptConnections {
+		log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
+		return c, nil
+	}
+
+	c2, err := newSecureConn(ctx, d.PrivateKey, c)
+	if err != nil {
+		c.Close()
+		return nil, err
 	}
 
 	// if the connection is not to whom we thought it would be...
-	connRemote := connOut.RemotePeer()
+	connRemote := c2.RemotePeer()
 	if connRemote != remote {
-		err := connOut.Close()
-		errOut = fmt.Errorf("misdial to %s through %s (got %s): %s", remote, raddr, connRemote, err)
-		logdial["error"] = errOut.Error()
-		logdial["dial"] = "failure"
-		return nil, errOut
+		c2.Close()
+		err = fmt.Errorf("misdial to %s through %s (got %s): %s", remote, raddr, connRemote, err)
+		return nil, err
 	}
 
 	logdial["dial"] = "success"
-	return connOut, nil
+	return c2, nil
 }
 
 func (d *Dialer) AddDialer(pd transport.Dialer) {
