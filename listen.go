@@ -30,7 +30,7 @@ var connAcceptBuffer = 32
 
 // AcceptTimeout is the maximum duration an Accept is allowed to take.
 // This includes the time between accepting the raw network connection,
-// protocol selection as well the handshake, if applicable.
+// protocol selection as well as the handshake, if applicable.
 var AcceptTimeout = 60 * time.Second
 
 // ConnWrapper is any function that wraps a raw multiaddr connection
@@ -134,7 +134,10 @@ func (l *listener) handleIncoming() {
 				continue
 			}
 
-			l.incoming <- connErr{err: err}
+			select {
+			case <-l.proc.Closing():
+			case l.incoming <- connErr{err: err}:
+			}
 			return
 		}
 
@@ -208,13 +211,29 @@ func (l *listener) handleIncoming() {
 				maconn.Close()
 			case c, ok := <-result: // connection completed (or errored)
 				if ok {
-					l.incoming <- connErr{conn: c}
+					select {
+					case <-l.proc.Closing():
+						maconn.Close()
+					case l.incoming <- connErr{conn: c}:
+					}
 				}
 			}
 		}()
 	}
 }
 
+// WrapTransportListener wraps a raw transport.Listener in an iconn.Listener.
+// If sk is not provided, transport encryption is disabled.
+//
+// The Listener will accept connections in the background and attempt to
+// negotiate the protocol before making the wrapped connection available to Accept.
+// If the negotiation and handshake take more than AcceptTimeout, the connection
+// is dropped. However, note that if a connection handshake succeeds, it will
+// wait indefinitely for an Accept call to service it (possibly consuming a goroutine).
+//
+// The context covers the listener and its background activities, but not the
+// connections once returned from Accept. Calling Close and canceling the
+// context are equivalent.
 func WrapTransportListener(ctx context.Context, ml transport.Listener, local peer.ID,
 	sk ic.PrivKey) (iconn.Listener, error) {
 	return WrapTransportListenerWithProtector(ctx, ml, local, sk, nil)
