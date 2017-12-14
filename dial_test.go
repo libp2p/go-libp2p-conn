@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -546,8 +548,8 @@ func TestConnectionTimeouts(t *testing.T) {
 		AcceptTimeout = oldD
 	}(DialTimeout, AcceptTimeout)
 
-	DialTimeout = time.Second * 5
-	AcceptTimeout = time.Second * 5
+	DialTimeout = time.Second * 1
+	AcceptTimeout = time.Second * 1
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
 
@@ -556,33 +558,25 @@ func TestConnectionTimeouts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	n := 100
-	if runtime.GOOS == "darwin" {
-		n = 50
-	}
-
 	p1.Addr = l1.Multiaddr() // Addr has been determined by kernel.
 
 	var wg sync.WaitGroup
+	var timeout int64
+	n := 100
 	for i := 0; i < n; i++ {
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			con, err := net.Dial("tcp", l1.Addr().String())
-			if err != nil {
-				log.Error(err)
-				t.Error("first dial failed: ", err)
-				return
-			}
-			defer con.Close()
-
+		con, err := net.Dial("tcp", l1.Addr().String())
+		if err != nil {
+			t.Fatal("first dial failed: ", err)
+		}
+		go func(con net.Conn) {
 			// hang this connection until timeout
-			io.ReadFull(con, make([]byte, 1000))
-		}()
+			io.Copy(ioutil.Discard, con)
+			con.Close()
+			atomic.StoreInt64(&timeout, 1)
+			wg.Done()
+		}(con)
 	}
-
-	// wait to make sure the hanging dials have started
-	time.Sleep(time.Millisecond * 50)
 
 	good_n := 20
 	for i := 0; i < good_n; i++ {
@@ -601,7 +595,6 @@ func TestConnectionTimeouts(t *testing.T) {
 		}()
 	}
 
-	before := time.Now()
 	for i := 0; i < good_n; i++ {
 		c, err := l1.Accept()
 		if err != nil {
@@ -611,14 +604,13 @@ func TestConnectionTimeouts(t *testing.T) {
 		c.Close()
 	}
 
-	took := time.Since(before)
-
-	if took > time.Second*5 {
+	if atomic.LoadInt64(&timeout) == 1 {
 		t.Fatal("hanging dials shouldnt block good dials")
 	}
 
 	wg.Wait()
 
+	wg.Add(1)
 	go func() {
 		p := tu.RandPeerNetParamsOrFatal(t)
 		d := NewDialer(p.ID, p.PrivKey, nil)
@@ -629,6 +621,7 @@ func TestConnectionTimeouts(t *testing.T) {
 			return
 		}
 		con.Close()
+		wg.Done()
 	}()
 
 	// make sure we can dial in still after a bunch of timeouts
@@ -639,6 +632,8 @@ func TestConnectionTimeouts(t *testing.T) {
 
 	con.Close()
 	l1.Close()
+
+	wg.Wait()
 	cancel()
 
 	time.Sleep(time.Millisecond * 100)
