@@ -72,7 +72,6 @@ func (d *Dialer) String() string {
 }
 
 // Dial connects to a peer over a particular address.
-// raddr must be part of the remote peer Addresses().
 // The remote peer ID is only verified if secure connections are in use.
 // It returns once the connection is established, the protocol negotiated,
 // and the handshake complete (if applicable).

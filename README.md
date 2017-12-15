@@ -26,7 +26,7 @@ using `go-multistream`.
 ## Install
 
 ```sh
-go get -u github.com/libp2p/go-libp2p-conn
+make deps
 ```
 
 ## Usage
@@ -39,9 +39,9 @@ Encryption is forced on when `go-libp2p-interface-conn.EncryptConnections` is tr
 
 ## Protocol overview
 
-The protocol is fairly straightforward: upon opening a connection, `go-multistream` is used to agree on plaintext (`"/plaintext/1.0.0"`) or encrypted (`"/secio/1.0.0"`). Both peers will only be open to use one or the other.
+The protocol is fairly straightforward: upon opening a connection, `go-multistream` is used to agree on plaintext (`"/plaintext/1.0.0"`) or encrypted (`"/secio/1.0.0"`). Plaintext will only be negotiated iff both peers have `go-libp2p-interface-conn.EncryptConnections` set to `false` or haven't constructed their Listeners/Dialers with secret keys.
 
-If plaintext is selected the connection is used as-is for the rest of its lifetime.
+If plaintext is selected, the connection is used as-is for the rest of its lifetime.
 
 If encrypted is selected, `go-libp2p-secio` is used to negotiate a transparent encrypted tunnel. The negotiation happens before the connection is made available to the library consumer.
 
@@ -54,7 +54,8 @@ Small note: If editing the Readme, please conform to the [standard-readme](https
 ### Tests
 
 ```sh
-go test github.com/libp2p/go-libp2p-conn
+make deps
+go test
 ```
 
 ## License
