@@ -24,8 +24,6 @@ import (
 // protocol selection as well the handshake, if applicable.
 var DialTimeout = 60 * time.Second
 
-type WrapFunc func(transport.Conn) transport.Conn
-
 // Dialer is an object with a peer identity that can open connections.
 //
 // NewDialer must be used to instantiate new Dialer objects.
@@ -50,7 +48,7 @@ type Dialer struct {
 	Protector ipnet.Protector
 
 	// Wrapper to wrap the raw connection. Can be nil.
-	Wrapper WrapFunc
+	Wrapper ConnWrapper
 
 	fallback transport.Dialer
 }
@@ -59,7 +57,7 @@ type Dialer struct {
 //
 // Before any calls to Dial are made, underlying dialers must be added
 // with AddDialer, and Protector (if any) must be set.
-func NewDialer(p peer.ID, pk ci.PrivKey, wrap WrapFunc) *Dialer {
+func NewDialer(p peer.ID, pk ci.PrivKey, wrap ConnWrapper) *Dialer {
 	return &Dialer{
 		LocalPeer:  p,
 		PrivateKey: pk,
