@@ -80,9 +80,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcfPte5kiCnjKVYELbDdHpuzh4avabCbg2WBjzXcHGTHN",
+      "hash": "Qmdymux8rfqoah85qFNdjtyUNQDsCBQfeygAmkowsEWhVV",
       "name": "go-libp2p-secio",
-      "version": "1.2.3"
+      "version": "1.2.4"
     },
     {
       "author": "whyrusleeping",
