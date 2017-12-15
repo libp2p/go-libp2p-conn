@@ -26,9 +26,9 @@ var DialTimeout = 60 * time.Second
 
 type WrapFunc func(transport.Conn) transport.Conn
 
-// Dialer is an object that can open connections. We could have a "convenience"
-// Dial function as before, but it would have many arguments, as dialing is
-// no longer simple (need a peerstore, a local peer, a context, a network, etc)
+// Dialer is an object with a peer identity that can open connections.
+//
+// NewDialer must be used to instantiate new Dialer objects.
 type Dialer struct {
 	// LocalPeer is the identity of the local Peer.
 	LocalPeer peer.ID
@@ -36,8 +36,8 @@ type Dialer struct {
 	// LocalAddrs is a set of local addresses to use.
 	//LocalAddrs []ma.Multiaddr
 
-	// Dialers are the sub-dialers usable by this dialer
-	// selected in order based on the address being dialed
+	// Dialers are the sub-dialers usable by this dialer,
+	// selected in order based on the address being dialed.
 	Dialers []transport.Dialer
 
 	// PrivateKey used to initialize a secure connection.
@@ -49,12 +49,16 @@ type Dialer struct {
 	// Can be nil, then dialer is in public network.
 	Protector ipnet.Protector
 
-	// Wrapper to wrap the raw connection (optional)
+	// Wrapper to wrap the raw connection. Can be nil.
 	Wrapper WrapFunc
 
 	fallback transport.Dialer
 }
 
+// NewDialer creates a new Dialer object.
+//
+// Before any calls to Dial are made, underlying dialers must be added
+// with AddDialer, and Protector (if any) must be set.
 func NewDialer(p peer.ID, pk ci.PrivKey, wrap WrapFunc) *Dialer {
 	return &Dialer{
 		LocalPeer:  p,
@@ -64,14 +68,16 @@ func NewDialer(p peer.ID, pk ci.PrivKey, wrap WrapFunc) *Dialer {
 	}
 }
 
-// String returns the string rep of d.
+// String returns the string representation of this Dialer.
 func (d *Dialer) String() string {
 	return fmt.Sprintf("<Dialer %s ...>", d.LocalPeer)
 }
 
-// Dial connects to a peer over a particular address
-// Ensures raddr is part of peer.Addresses()
-// Example: d.DialAddr(ctx, peer.Addresses()[0], peer)
+// Dial connects to a peer over a particular address.
+// raddr must be part of the remote peer Addresses().
+// The remote peer ID is only verified if secure connections are in use.
+// It returns once the connection is established, the protocol negotiated,
+// and the handshake complete (if applicable).
 func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (iconn.Conn, error) {
 	deadline := time.Now().Add(DialTimeout)
 	ctx, cancel := context.WithDeadline(ctx, deadline)
@@ -162,6 +168,8 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 	return c2, nil
 }
 
+// AddDialer adds a sub-dialer usable by this dialer.
+// Dialers added first will be selected first, based on the address.
 func (d *Dialer) AddDialer(pd transport.Dialer) {
 	d.Dialers = append(d.Dialers, pd)
 }

@@ -33,7 +33,7 @@ var connAcceptBuffer = 32
 // protocol selection as well as the handshake, if applicable.
 var AcceptTimeout = 60 * time.Second
 
-// ConnWrapper is any function that wraps a raw multiaddr connection
+// ConnWrapper is any function that wraps a raw multiaddr connection.
 type ConnWrapper func(transport.Conn) transport.Conn
 
 // listener is an object that can accept connections. It implements Listener
@@ -82,7 +82,6 @@ type connErr struct {
 }
 
 // Accept waits for and returns the next connection to the listener.
-// Note that unfortunately this
 func (l *listener) Accept() (transport.Conn, error) {
 	if c, ok := <-l.incoming; ok {
 		return c.conn, c.err
@@ -228,12 +227,14 @@ func (l *listener) handleIncoming() {
 // The Listener will accept connections in the background and attempt to
 // negotiate the protocol before making the wrapped connection available to Accept.
 // If the negotiation and handshake take more than AcceptTimeout, the connection
-// is dropped. However, note that if a connection handshake succeeds, it will
+// is dropped. However, note that once a connection handshake succeeds, it will
 // wait indefinitely for an Accept call to service it (possibly consuming a goroutine).
 //
 // The context covers the listener and its background activities, but not the
 // connections once returned from Accept. Calling Close and canceling the
 // context are equivalent.
+//
+// The returned Listener implements ListenerConnWrapper.
 func WrapTransportListener(ctx context.Context, ml transport.Listener, local peer.ID,
 	sk ic.PrivKey) (iconn.Listener, error) {
 	return WrapTransportListenerWithProtector(ctx, ml, local, sk, nil)
@@ -287,11 +288,11 @@ func WrapTransportListenerWithProtector(ctx context.Context, ml transport.Listen
 }
 
 type ListenerConnWrapper interface {
+	// SetConnWrapper assigns a ConnWrapper to wrap all raw incoming
+	// connections with. It must be called before any call to Accept.
 	SetConnWrapper(ConnWrapper)
 }
 
-// SetConnWrapper assigns a maconn ConnWrapper to wrap all incoming
-// connections with. MUST be set _before_ calling `Accept()`
 func (l *listener) SetConnWrapper(cw ConnWrapper) {
 	l.wrapper = cw
 }
