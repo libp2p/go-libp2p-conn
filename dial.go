@@ -76,7 +76,7 @@ func (d *Dialer) String() string {
 // The remote peer ID is only verified if secure connections are in use.
 // It returns once the connection is established, the protocol negotiated,
 // and the handshake complete (if applicable).
-func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (iconn.Conn, error) {
+func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (c iconn.Conn, err error) {
 	deadline := time.Now().Add(DialTimeout)
 	ctx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
@@ -93,7 +93,6 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 		return nil, ipnet.ErrNotInPrivateNetwork
 	}
 
-	var err error
 	defer func() {
 		if err != nil {
 			logdial["error"] = err.Error()
@@ -134,15 +133,14 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 	}()
 	select {
 	case <-ctx.Done():
-		err = ctx.Err()
-		return nil, err
+		return nil, ctx.Err()
 	case err = <-selectResult:
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	c := newSingleConn(ctx, d.LocalPeer, remote, maconn)
+	c = newSingleConn(ctx, d.LocalPeer, remote, maconn)
 	if d.PrivateKey == nil || !iconn.EncryptConnections {
 		log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
 		return c, nil
@@ -158,8 +156,7 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 	connRemote := c2.RemotePeer()
 	if connRemote != remote {
 		c2.Close()
-		err = fmt.Errorf("misdial to %s through %s (got %s): %s", remote, raddr, connRemote, err)
-		return nil, err
+		return nil, fmt.Errorf("misdial to %s through %s (got %s): %s", remote, raddr, connRemote, err)
 	}
 
 	logdial["dial"] = "success"
