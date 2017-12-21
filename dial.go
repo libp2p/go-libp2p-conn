@@ -24,11 +24,9 @@ import (
 // protocol selection as well the handshake, if applicable.
 var DialTimeout = 60 * time.Second
 
-type WrapFunc func(transport.Conn) transport.Conn
-
-// Dialer is an object that can open connections. We could have a "convenience"
-// Dial function as before, but it would have many arguments, as dialing is
-// no longer simple (need a peerstore, a local peer, a context, a network, etc)
+// Dialer is an object with a peer identity that can open connections.
+//
+// NewDialer must be used to instantiate new Dialer objects.
 type Dialer struct {
 	// LocalPeer is the identity of the local Peer.
 	LocalPeer peer.ID
@@ -36,8 +34,8 @@ type Dialer struct {
 	// LocalAddrs is a set of local addresses to use.
 	//LocalAddrs []ma.Multiaddr
 
-	// Dialers are the sub-dialers usable by this dialer
-	// selected in order based on the address being dialed
+	// Dialers are the sub-dialers usable by this dialer,
+	// selected in order based on the address being dialed.
 	Dialers []transport.Dialer
 
 	// PrivateKey used to initialize a secure connection.
@@ -49,13 +47,17 @@ type Dialer struct {
 	// Can be nil, then dialer is in public network.
 	Protector ipnet.Protector
 
-	// Wrapper to wrap the raw connection (optional)
-	Wrapper WrapFunc
+	// Wrapper to wrap the raw connection. Can be nil.
+	Wrapper ConnWrapper
 
 	fallback transport.Dialer
 }
 
-func NewDialer(p peer.ID, pk ci.PrivKey, wrap WrapFunc) *Dialer {
+// NewDialer creates a new Dialer object.
+//
+// Before any calls to Dial are made, underlying dialers must be added
+// with AddDialer, and Protector (if any) must be set.
+func NewDialer(p peer.ID, pk ci.PrivKey, wrap ConnWrapper) *Dialer {
 	return &Dialer{
 		LocalPeer:  p,
 		PrivateKey: pk,
@@ -64,15 +66,16 @@ func NewDialer(p peer.ID, pk ci.PrivKey, wrap WrapFunc) *Dialer {
 	}
 }
 
-// String returns the string rep of d.
+// String returns the string representation of this Dialer.
 func (d *Dialer) String() string {
 	return fmt.Sprintf("<Dialer %s ...>", d.LocalPeer)
 }
 
-// Dial connects to a peer over a particular address
-// Ensures raddr is part of peer.Addresses()
-// Example: d.DialAddr(ctx, peer.Addresses()[0], peer)
-func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (iconn.Conn, error) {
+// Dial connects to a peer over a particular address.
+// The remote peer ID is only verified if secure connections are in use.
+// It returns once the connection is established, the protocol negotiated,
+// and the handshake complete (if applicable).
+func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (c iconn.Conn, err error) {
 	deadline := time.Now().Add(DialTimeout)
 	ctx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
@@ -89,101 +92,78 @@ func (d *Dialer) Dial(ctx context.Context, raddr ma.Multiaddr, remote peer.ID) (
 		return nil, ipnet.ErrNotInPrivateNetwork
 	}
 
-	var connOut iconn.Conn
-	var errOut error
-	done := make(chan struct{})
-
-	// do it async to ensure we respect don contexteone
-	go func() {
-		defer func() {
-			select {
-			case done <- struct{}{}:
-			case <-ctx.Done():
-			}
-		}()
-
-		maconn, err := d.rawConnDial(ctx, raddr, remote)
+	defer func() {
 		if err != nil {
-			errOut = err
-			return
+			logdial["error"] = err.Error()
+			logdial["dial"] = "failure"
 		}
-
-		if d.Protector != nil {
-			pconn, err := d.Protector.Protect(maconn)
-			if err != nil {
-				maconn.Close()
-				errOut = err
-				return
-			}
-			maconn = pconn
-		}
-
-		if d.Wrapper != nil {
-			maconn = d.Wrapper(maconn)
-		}
-
-		cryptoProtoChoice := SecioTag
-		if !iconn.EncryptConnections || d.PrivateKey == nil {
-			cryptoProtoChoice = NoEncryptionTag
-		}
-
-		maconn.SetDeadline(deadline)
-
-		err = msmux.SelectProtoOrFail(cryptoProtoChoice, maconn)
-		if err != nil {
-			maconn.Close()
-			errOut = err
-			return
-		}
-
-		maconn.SetDeadline(time.Time{})
-
-		c := newSingleConn(ctx, d.LocalPeer, remote, maconn)
-		if d.PrivateKey == nil || !iconn.EncryptConnections {
-			log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
-			connOut = c
-			return
-		}
-
-		c2, err := newSecureConn(ctx, d.PrivateKey, c)
-		if err != nil {
-			errOut = err
-			c.Close()
-			return
-		}
-
-		connOut = c2
 	}()
 
-	select {
-	case <-ctx.Done():
-		logdial["error"] = ctx.Err().Error()
-		logdial["dial"] = "failure"
-		return nil, ctx.Err()
-	case <-done:
-		// whew, finished.
+	maconn, err := d.rawConnDial(ctx, raddr, remote)
+	if err != nil {
+		return nil, err
 	}
 
-	if errOut != nil {
-		logdial["error"] = errOut.Error()
-		logdial["dial"] = "failure"
-		return nil, errOut
+	defer func() {
+		if err != nil {
+			maconn.Close()
+		}
+	}()
+
+	if d.Protector != nil {
+		maconn, err = d.Protector.Protect(maconn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if d.Wrapper != nil {
+		maconn = d.Wrapper(maconn)
+	}
+
+	cryptoProtoChoice := SecioTag
+	if !iconn.EncryptConnections || d.PrivateKey == nil {
+		cryptoProtoChoice = NoEncryptionTag
+	}
+
+	selectResult := make(chan error, 1)
+	go func() {
+		selectResult <- msmux.SelectProtoOrFail(cryptoProtoChoice, maconn)
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err = <-selectResult:
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	c = newSingleConn(ctx, d.LocalPeer, remote, maconn)
+	if d.PrivateKey == nil || !iconn.EncryptConnections {
+		log.Warning("dialer %s dialing INSECURELY %s at %s!", d, remote, raddr)
+		return c, nil
+	}
+
+	c2, err := newSecureConn(ctx, d.PrivateKey, c)
+	if err != nil {
+		c.Close()
+		return nil, err
 	}
 
 	// if the connection is not to whom we thought it would be...
-	connRemote := connOut.RemotePeer()
+	connRemote := c2.RemotePeer()
 	if connRemote != remote {
-		err := connOut.Close()
-		errOut = fmt.Errorf("misdial to %s through %s (got %s): %s", remote, raddr, connRemote, err)
-		logdial["error"] = errOut.Error()
-		logdial["dial"] = "failure"
-		return nil, errOut
+		c2.Close()
+		return nil, fmt.Errorf("misdial to %s through %s (got %s): %s", remote, raddr, connRemote, err)
 	}
 
 	logdial["dial"] = "success"
-	return connOut, nil
+	return c2, nil
 }
 
+// AddDialer adds a sub-dialer usable by this dialer.
+// Dialers added first will be selected first, based on the address.
 func (d *Dialer) AddDialer(pd transport.Dialer) {
 	d.Dialers = append(d.Dialers, pd)
 }

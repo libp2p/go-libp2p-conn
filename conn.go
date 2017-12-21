@@ -18,8 +18,8 @@ import (
 
 var log = logging.Logger("conn")
 
-// ReleaseBuffer puts the given byte array back into the buffer pool,
-// first verifying that it is the correct size
+// ReleaseBuffer puts the given byte array back into the appropriate
+// global buffer pool based on its capacity.
 func ReleaseBuffer(b []byte) {
 	log.Debugf("Releasing buffer! (cap,size = %d, %d)", cap(b), len(b))
 	mpool.ByteSlicePool.Put(uint32(cap(b)), b)
