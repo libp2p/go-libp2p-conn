@@ -45,9 +45,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmaDoQyTYCS3DrPLBLXMixXfuCstBVVR81J3UY1vMxghpT",
+      "hash": "QmQ3c5AP6yjqD3E4get5atkvfaUU4rubWquoL2e8ycjUSu",
       "name": "go-libp2p-loggables",
-      "version": "1.1.11"
+      "version": "1.1.12"
     },
     {
       "author": "whyrusleeping",
@@ -126,6 +126,6 @@
   "license": "",
   "name": "go-libp2p-conn",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.7.3"
+  "version": "1.7.4"
 }
 
