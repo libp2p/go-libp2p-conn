@@ -548,8 +548,8 @@ func TestConnectionTimeouts(t *testing.T) {
 		AcceptTimeout = oldD
 	}(DialTimeout, AcceptTimeout)
 
-	DialTimeout = time.Second * 1
-	AcceptTimeout = time.Second * 1
+	DialTimeout = time.Second * 4
+	AcceptTimeout = time.Second * 4
 
 	p1 := tu.RandPeerNetParamsOrFatal(t)
 
