@@ -1,5 +1,14 @@
-go-libp2p-conn
-==================
+[[ DEPRECATED ]] go-libp2p-conn
+===============================
+
+This package has been deprecated and is no longer used by go-libp2p. Now that
+transports are responsible for securing and multiplexing connections, the bulk
+of the logic in this package has been moved to
+[go-libp2p-transport-upgrader](https://github.com/libp2p/go-libp2p-transport-upgrader/),
+and the rest into [go-libp2p-swarm](https://github.com/libp2p/go-libp2p-swarm/).
+
+
+* [go-libp2p-swarm](https://github.com/libp2p/go-libp2p-swarm/) -- some of the dial logic
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 [![](https://img.shields.io/badge/project-IPFS-blue.svg?style=flat-square)](http://libp2p.io/)
